@@ -2,6 +2,65 @@
 Data Visualization and Normalization - A Key component
 finding the middle between FinOps and Engineering data
 
+import boto3
+import pandas as pd
+from datetime import datetime, timedelta
+
+# Initialize a session using Boto3
+session = boto3.Session()
+client = session.client('ce')  # Cost Explorer
+
+# Function to retrieve cost data
+def get_cost_data(start_date, end_date):
+    response = client.get_cost_and_usage(
+        TimePeriod={
+            'Start': start_date,
+            'End': end_date
+        },
+        Granularity='DAILY',
+        Metrics=['UnblendedCost'],
+        GroupBy=[
+            {
+                'Type': 'DIMENSION',
+                'Key': 'INSTANCE_TYPE'
+            },
+            {
+                'Type': 'DIMENSION',
+                'Key': 'REGION'
+            }
+        ]
+    )
+    return response['ResultsByTime']
+
+# Function to process and analyze cost data
+def analyze_cost_data(data):
+    records = []
+    for day in data:
+        for group in day['Groups']:
+            records.append({
+                'Date': day['TimePeriod']['Start'],
+                'InstanceType': group['Keys'][0],
+                'Region': group['Keys'][1],
+                'Cost': float(group['Metrics']['UnblendedCost']['Amount'])
+            })
+    return pd.DataFrame(records)
+
+# Set date range for the last 30 days
+end_date = datetime.today().date()
+start_date = end_date - timedelta(days=30)
+
+# Retrieve and analyze cost data
+cost_data = get_cost_data(start_date.isoformat(), end_date.isoformat())
+df_cost_analysis = analyze_cost_data(cost_data)
+
+# Display the analyzed cost data
+print(df_cost_analysis)
+
+# Optional: Save to CSV for further analysis
+df_cost_analysis.to_csv('ec2_cost_analysis.csv', index=False)
+
+
+
 Overview of AWS EC2 Pricing
 Amazon EC2 (Elastic Compute Cloud) pricing is structured around several key components, allowing users to select the most cost-effective options based on their specific needs. Understanding these components is crucial for optimizing cloud expenditure.
 Key Pricing Components
