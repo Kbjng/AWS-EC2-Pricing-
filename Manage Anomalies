@@ -1,0 +1,68 @@
+import boto3
+import json
+from datetime import datetime, timedelta
+
+# Initialize a session using AWS Cost Explorer
+session = boto3.Session()
+ce_client = session.client('ce')
+
+def get_anomalies(start_date, end_date, monitor_arn=None, max_results=20):
+    """
+    Retrieve cost anomalies detected by AWS Cost Management.
+
+    :param start_date: Start date for retrieving anomalies (YYYY-MM-DD)
+    :param end_date: End date for retrieving anomalies (YYYY-MM-DD)
+    :param monitor_arn: Optional ARN of the cost anomaly monitor
+    :param max_results: Maximum number of results to return
+    :return: List of anomalies
+    """
+    date_interval = {
+        'StartDate': start_date,
+        'EndDate': end_date
+    }
+    
+    params = {
+        'DateInterval': date_interval,
+        'MaxResults': max_results
+    }
+    
+    if monitor_arn:
+        params['MonitorArn'] = monitor_arn
+
+    try:
+        response = ce_client.get_anomalies(**params)
+        return response.get('Anomalies', [])
+    except Exception as e:
+        print(f"Error retrieving anomalies: {e}")
+        return []
+
+def analyze_anomalies(anomalies):
+    """
+    Analyze the retrieved anomalies and print relevant details.
+
+    :param anomalies: List of anomalies to analyze
+    """
+    for anomaly in anomalies:
+        print(f"Anomaly ID: {anomaly['AnomalyId']}")
+        print(f"Start Date: {anomaly['AnomalyStartDate']}")
+        print(f"End Date: {anomaly['AnomalyEndDate']}")
+        print(f"Total Impact: ${anomaly['Impact']['TotalImpact']:.2f}")
+        print(f"Feedback: {anomaly['Feedback']}")
+        print("Root Causes:")
+        
+        for cause in anomaly.get('RootCauses', []):
+            print(f"- Service: {cause['Service']}, Region: {cause['Region']}, Usage Type: {cause['UsageType']}")
+        
+        print("-" * 40)
+
+if __name__ == "__main__":
+    # Example usage
+    today = datetime.now()
+    start_date = (today - timedelta(days=30)).strftime('%Y-%m-%d')
+    end_date = today.strftime('%Y-%m-%d')
+
+    # Fetch anomalies from the last 30 days
+    anomalies = get_anomalies(start_date, end_date)
+    
+    # Analyze and display the anomalies
+    analyze_anomalies(anomalies)
